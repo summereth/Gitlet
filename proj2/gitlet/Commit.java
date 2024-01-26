@@ -2,6 +2,8 @@ package gitlet;
 
 // TODO: any imports you need here
 
+import java.io.File;
+import java.io.Serializable;
 import java.util.Date; // TODO: You'll likely use this in this class
 import java.util.*;
 
@@ -12,7 +14,7 @@ import java.util.*;
  *
  * @author Qian Li
  */
-public class Commit {
+public class Commit implements Serializable {
   /**
    * TODO: add instance variables here.
    *
@@ -50,5 +52,12 @@ public class Commit {
 
   public List<String> getFiles() {
     return files;
+  }
+
+  public String save() {
+    String id = Utils.sha1(Utils.serialize(this));
+    File f = Utils.join(Repository.COMMIT_DIR, id);
+    Utils.writeObject(f, this);
+    return id;
   }
 }

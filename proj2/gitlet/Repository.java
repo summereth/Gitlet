@@ -29,19 +29,19 @@ public class Repository {
   /**
    * The .gitlet directory.
    * .getlet
-   *  - branch/
-   *    - HEAD.txt
-   *    - master.txt
-   *  - stage/
-   *  - commit/
-   *  - blob/
+   * - branch/
+   * - HEAD.txt
+   * - master.txt
+   * - stage.txt/
+   * - commit/
+   * - blob/
    */
   public static final File GITLET_DIR = join(CWD, ".gitlet");
-  public static final File BRANCH_DIR = join(GITLET_DIR, "branch");
-  public static final File STAGE_DIR = join(GITLET_DIR, "stage");
-  public static final File COMMIT_DIR = join(GITLET_DIR, "commit");
-  public static final File BLOB_DIR = join(GITLET_DIR, "blob");
-  public static final File HEAD = join(BRANCH_DIR, "HEAD.txt");
+  static final File BRANCH_DIR = join(GITLET_DIR, "branch");
+  static final File STAGE_DIR = join(GITLET_DIR, "stage.txt");
+  static final File COMMIT_DIR = join(GITLET_DIR, "commit");
+  static final File BLOB_DIR = join(GITLET_DIR, "blob");
+  static final File HEAD = join(BRANCH_DIR, "HEAD.txt");
 
   /* TODO: fill in the rest of this class. */
 
@@ -59,10 +59,27 @@ public class Repository {
    */
   public static void initCommand() {
     // init repo
-    // make master branch
-    // make initial commit
-    // make HEAD file
+    if (GITLET_DIR.exists()) {
+      System.out.println("Gitlet was already inited in current directory");
+      System.exit(0);
+    }
+    System.out.println("Init processing..."); // for test
+    GITLET_DIR.mkdir();
+    BRANCH_DIR.mkdir();
+    COMMIT_DIR.mkdir();
+    BLOB_DIR.mkdir();
 
+    // make initial commit
+    Commit initialCommit = new Commit("initial commit", null);
+    String initialCommitId = initialCommit.save();
+    // make master branch
+    File master = join(BRANCH_DIR, "master.txt");
+    Utils.writeContents(master, initialCommitId);
+    // make HEAD file
+    Utils.writeContents(HEAD, initialCommitId);
+    // make staging area file
+    Stage stage = new Stage();
+    Utils.writeObject(STAGE_DIR, stage);
   }
 
   public static void addCommand(String[] args) {

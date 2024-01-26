@@ -19,7 +19,8 @@ public class Main {
      *
      * If a user inputs a command with the wrong number or format of operands, print the message Incorrect operands. and exit.
      *
-     * If a user inputs a command that requires being in an initialized Gitlet working directory (i.e., one containing a .gitlet subdirectory), but is not in such a directory, print the message Not in an initialized Gitlet directory.
+     * If a user inputs a command that requires being in an initialized Gitlet working directory (i.e., one containing a
+     * .gitlet subdirectory), but is not in such a directory, print the message Not in an initialized Gitlet directory.
      */
     // TODO: what if args is empty?
     if (args.length == 0) {

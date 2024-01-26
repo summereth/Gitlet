@@ -1,8 +1,9 @@
 package gitlet;
 
+import java.io.Serializable;
 import java.util.*;
 
-public class Stage {
+public class Stage implements Serializable {
   private Map<String, String> addedFiles;
   private List<String> removedFiles;
 
