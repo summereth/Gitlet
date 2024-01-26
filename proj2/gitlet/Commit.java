@@ -56,7 +56,7 @@ public class Commit implements Serializable {
 
   public String save() {
     String id = Utils.sha1(Utils.serialize(this));
-    File f = Utils.join(Repository.COMMIT_DIR, id);
+    File f = Utils.join(Repository.COMMIT_DIR, id + ".txt");
     Utils.writeObject(f, this);
     return id;
   }

@@ -41,7 +41,10 @@ public class Repository {
   static final File STAGE_DIR = join(GITLET_DIR, "stage.txt");
   static final File COMMIT_DIR = join(GITLET_DIR, "commit");
   static final File BLOB_DIR = join(GITLET_DIR, "blob");
-  static final File HEAD = join(BRANCH_DIR, "HEAD.txt");
+  static final File HEAD_DIR = join(BRANCH_DIR, "HEAD.txt");
+  static Stage stagingArea;
+  static Commit head;
+
 
   /* TODO: fill in the rest of this class. */
 
@@ -76,10 +79,16 @@ public class Repository {
     File master = join(BRANCH_DIR, "master.txt");
     Utils.writeContents(master, initialCommitId);
     // make HEAD file
-    Utils.writeContents(HEAD, initialCommitId);
+    Utils.writeContents(HEAD_DIR, initialCommitId);
+    head = getCurrentHead();
     // make staging area file
-    Stage stage = new Stage();
-    Utils.writeObject(STAGE_DIR, stage);
+    stagingArea = new Stage();
+    Utils.writeObject(STAGE_DIR, stagingArea);
+  }
+
+  public static Commit getCurrentHead() {
+    String commitId = Utils.readContentsAsString(HEAD_DIR);
+    return Utils.readObject(Utils.join(COMMIT_DIR, commitId + ".txt"), Commit.class);
   }
 
   public static void addCommand(String[] args) {
