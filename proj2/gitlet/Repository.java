@@ -1,6 +1,7 @@
 package gitlet;
 
 import java.io.File;
+import java.util.*;
 
 import static gitlet.Utils.*;
 
@@ -122,6 +123,7 @@ public class Repository {
       Commit head = getCurrentHead();
       Stage stagingArea = getCurrentStage();
       stagingArea.setAddedFiles(filename, contentHashed, head);
+      stagingArea.save();
       stagingArea.printStaging(); // for test
     }
   }
@@ -145,12 +147,33 @@ public class Repository {
    */
   public static void commitCommand(String message) {
     // read from filesystem the head commit and the staging area
+    Stage stagingArea = getCurrentStage();
+    if (stagingArea.getAddedFiles().size() == 0 && stagingArea.getRemovedFiles().size() == 0) {
+      System.out.println("The staging area is clean. Nothing to commit.");
+      System.exit(0);
+    }
+
+    Commit head = getCurrentHead();
+    File currentBranchFile = Utils.join(BRANCH_DIR, Utils.readContentsAsString(HEAD_DIR) + ".txt");
+    String headCommitId = Utils.readContentsAsString(currentBranchFile);
 
     // clone the head commit
-    // modify its message and timestamp according to user input
+    Map<String, String> lastCommitFiles = head.getFiles();
+    Map<String, String> lastCommitFilesClone = new HashMap<>();
+    for (String key : lastCommitFiles.keySet()) {
+      lastCommitFilesClone.put(key, lastCommitFiles.get(key));
+    }
+    // modify its message, timestamp, parent commit according to user input
+    Commit thisCommit = new Commit(message, List.of(headCommitId));
     // update the tracking files by the use of staging area
-    // update the parent commit
+    thisCommit.updateFiles(stagingArea, lastCommitFilesClone);
 
     // write back any new object made
+    String commitId = thisCommit.save();
+    // make current commit the head
+    Utils.writeContents(currentBranchFile, commitId);
+
+    // make new staging area / clear the staging area
+    Utils.writeObject(STAGE_DIR, new Stage());
   }
 }

@@ -36,6 +36,10 @@ public class Stage implements Serializable {
     addedFiles.put(filename, contentHashed);
   }
 
+  public void save() {
+    Utils.writeObject(Repository.STAGE_DIR, this);
+  }
+
   /**
    * test function
    */

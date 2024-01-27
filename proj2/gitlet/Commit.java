@@ -61,4 +61,14 @@ public class Commit implements Serializable {
     Utils.writeObject(f, this);
     return id;
   }
+
+  public void updateFiles(Stage stagingArea, Map<String, String> files) {
+    this.files = files;
+    for (String filename: stagingArea.getAddedFiles().keySet()) {
+      files.put(filename, stagingArea.getAddedFiles().get(filename));
+    }
+    for (String filename: stagingArea.getRemovedFiles()) {
+      files.remove(filename);
+    }
+  }
 }
