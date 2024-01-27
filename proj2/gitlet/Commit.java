@@ -29,13 +29,14 @@ public class Commit implements Serializable {
   private String message;
   private String timestamp;
   private List<String> parents;
-  private List<String> files;
+  private Map<String, String> files;
 
   /* TODO: fill in the rest of this class. */
   public Commit(String message, List<String> parents) {
     this.message = message;
     this.parents = parents;
     this.timestamp = parents == null ? (new Date(0)).toString() : (new Date()).toString();
+    files = new HashMap<>();
   }
 
   public String getMessage() {
@@ -50,7 +51,7 @@ public class Commit implements Serializable {
     return parents;
   }
 
-  public List<String> getFiles() {
+  public Map<String, String> getFiles() {
     return files;
   }
 

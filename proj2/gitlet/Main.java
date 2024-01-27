@@ -59,7 +59,7 @@ public class Main {
   }
 
   public static void validateArgsNum(String[] args, int num, boolean atLeast) {
-    if (args.length != num) {
+    if (args.length < num || (!atLeast && args.length > num)) {
       System.out.println("Incorrect operands.");
       System.exit(0);
     }
