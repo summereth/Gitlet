@@ -39,10 +39,10 @@ public class Repository {
    */
   public static final File GITLET_DIR = join(CWD, ".gitlet");
   static final File BRANCH_DIR = join(GITLET_DIR, "branch");
-  static final File STAGE_DIR = join(GITLET_DIR, "stage.txt");
+  static final File STAGE_FILE = join(GITLET_DIR, "stage.txt");
   static final File COMMIT_DIR = join(GITLET_DIR, "commit");
   static final File BLOB_DIR = join(GITLET_DIR, "blob");
-  static final File HEAD_DIR = join(BRANCH_DIR, "HEAD.txt");
+  static final File HEAD_FILE = join(BRANCH_DIR, "HEAD.txt");
 
 
   /* TODO: fill in the rest of this class. */
@@ -78,21 +78,21 @@ public class Repository {
     File master = join(BRANCH_DIR, "master.txt");
     Utils.writeContents(master, initialCommitId);
     // make HEAD file and write current branch into HEAD
-    Utils.writeContents(HEAD_DIR, "master");
+    Utils.writeContents(HEAD_FILE, "master");
     // make staging area file
-    Utils.writeObject(STAGE_DIR, new Stage());
+    Utils.writeObject(STAGE_FILE, new Stage());
 
     System.out.println("Gitlet has been successfully initialised.");
   }
 
   public static Commit getCurrentHead() {
-    String branch = Utils.readContentsAsString(HEAD_DIR);
+    String branch = Utils.readContentsAsString(HEAD_FILE);
     String commitId = Utils.readContentsAsString(Utils.join(BRANCH_DIR, branch + ".txt"));
     return Utils.readObject(Utils.join(COMMIT_DIR, commitId + ".txt"), Commit.class);
   }
 
   public static Stage getCurrentStage() {
-    return Utils.readObject(STAGE_DIR, Stage.class);
+    return Utils.readObject(STAGE_FILE, Stage.class);
   }
 
   /**
@@ -154,7 +154,7 @@ public class Repository {
     }
 
     Commit head = getCurrentHead();
-    File currentBranchFile = Utils.join(BRANCH_DIR, Utils.readContentsAsString(HEAD_DIR) + ".txt");
+    File currentBranchFile = Utils.join(BRANCH_DIR, Utils.readContentsAsString(HEAD_FILE) + ".txt");
     String headCommitId = Utils.readContentsAsString(currentBranchFile);
 
     // clone the head commit
@@ -174,7 +174,7 @@ public class Repository {
     Utils.writeContents(currentBranchFile, commitId);
 
     // make new staging area / clear the staging area
-    Utils.writeObject(STAGE_DIR, new Stage());
+    Utils.writeObject(STAGE_FILE, new Stage());
 
     // for test
     thisCommit.printFiles();
@@ -233,7 +233,7 @@ public class Repository {
    * Merged development into master.
    */
   public static void logCommand() {
-    File currentBranchFile = Utils.join(BRANCH_DIR, Utils.readContentsAsString(HEAD_DIR) + ".txt");
+    File currentBranchFile = Utils.join(BRANCH_DIR, Utils.readContentsAsString(HEAD_FILE) + ".txt");
     String curr = Utils.readContentsAsString(currentBranchFile);
     while (curr != null) {
       Commit currCommit = Utils.readObject(Utils.join(COMMIT_DIR, curr + ".txt"), Commit.class);
@@ -252,6 +252,30 @@ public class Repository {
         break;
       }
       curr = currCommit.getParents().get(0);
+    }
+  }
+
+  /**
+   * Like log, except displays information about all commits ever made. The order of the commits
+   * does not matter. Hint: there is a useful method in gitlet.Utils that will help you iterate over
+   * files within a directory.
+   */
+  public static void globalLogCommand() {
+    List<String> commits = Utils.plainFilenamesIn(COMMIT_DIR);
+    for (String commitFile: commits) {
+      Commit commit = Utils.readObject(Utils.join(COMMIT_DIR, commitFile), Commit.class);
+      String commitId = commitFile.split(".txt")[0];
+      if (commit.getParents() == null || commit.getParents().size() == 1) {
+        System.out.println(String.format("===\ncommit %s\nDate: %s\n%s\n"
+                , commitId, commit.getTimestamp(), commit.getMessage()));
+      } else {
+        String parents = "";
+        for (String parent : commit.getParents()) {
+          parents += parent.substring(0, 7);
+        }
+        System.out.println(String.format("===\ncommit %s\nMerge: %s\nDate: %s\n%s\n"
+                , commitId, parents, commit.getTimestamp(), commit.getMessage()));
+      }
     }
   }
 }

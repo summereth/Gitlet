@@ -61,7 +61,7 @@ public class Stage implements Serializable {
   }
 
   public void save() {
-    Utils.writeObject(Repository.STAGE_DIR, this);
+    Utils.writeObject(Repository.STAGE_FILE, this);
   }
 
   /**

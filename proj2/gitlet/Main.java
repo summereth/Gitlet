@@ -60,6 +60,10 @@ public class Main {
         validateArgsNum(args, 1, false);
         Repository.logCommand();
         break;
+      case "global-log":
+        validateArgsNum(args, 1, false);
+        Repository.globalLogCommand();
+        break;
       default:
         System.out.println("No command with that name exists.");
         System.exit(0);
