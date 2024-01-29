@@ -211,4 +211,47 @@ public class Repository {
       stagingArea.printStaging(); // for test
     }
   }
+
+  /**
+   * Starting at the current head commit, display information about each commit backwards along the
+   * commit tree until the initial commit, following the first parent commit links, ignoring any
+   * second parents found in merge commits. (In regular Git, this is what you get with "git log
+   * --first-parent"). This set of commit nodes is called the commit’s history. For every node in
+   * this history, the information it should display is the commit id, the time the commit was made,
+   * and the commit message.
+   *
+   * Here is an example of the exact format it should follow:
+   * ===
+   * commit a0da1ea5a15ab613bf9961fd86f010cf74c7ee48
+   * Date: Thu Nov 9 20:00:05 2017 -0800
+   * A commit message.
+   *
+   * ===
+   * commit 3e8bf1d794ca2e9ef8a4007275acf3751c7170ff
+   * Merge: 4975af1 2c1ead1
+   * Date: Thu Nov 9 12:30:00 2017 -0800
+   * Merged development into master.
+   */
+  public static void logCommand() {
+    File currentBranchFile = Utils.join(BRANCH_DIR, Utils.readContentsAsString(HEAD_DIR) + ".txt");
+    String curr = Utils.readContentsAsString(currentBranchFile);
+    while (curr != null) {
+      Commit currCommit = Utils.readObject(Utils.join(COMMIT_DIR, curr + ".txt"), Commit.class);
+      if (currCommit.getParents() == null || currCommit.getParents().size() == 1) {
+        System.out.println(String.format("===\ncommit %s\nDate: %s\n%s\n"
+                , curr, currCommit.getTimestamp(), currCommit.getMessage()));
+      } else {
+        String parents = "";
+        for (String parent : currCommit.getParents()) {
+          parents += parent.substring(0, 7);
+        }
+        System.out.println(String.format("===\ncommit %s\nMerge: %s\nDate: %s\n%s\n"
+                , curr, parents, currCommit.getTimestamp(), currCommit.getMessage()));
+      }
+      if (currCommit.getParents() == null) {
+        break;
+      }
+      curr = currCommit.getParents().get(0);
+    }
+  }
 }

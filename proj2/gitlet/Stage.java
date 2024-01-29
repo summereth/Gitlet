@@ -3,6 +3,14 @@ package gitlet;
 import java.io.Serializable;
 import java.util.*;
 
+/**
+ * Represents gitlet staging area.
+ * Contains files to be added and removed.
+ * Methods including setting up addedFiles, removedFiles and save current staging area.
+ *
+ * @author Qian (Summer) Li
+ */
+
 public class Stage implements Serializable {
   private Map<String, String> addedFiles;
   private List<String> removedFiles;

@@ -56,6 +56,10 @@ public class Main {
         validateArgsNum(args, 2, true);
         Repository.rmCommand(args);
         break;
+      case "log":
+        validateArgsNum(args, 1, false);
+        Repository.logCommand();
+        break;
       default:
         System.out.println("No command with that name exists.");
         System.exit(0);
