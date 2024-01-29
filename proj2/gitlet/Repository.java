@@ -184,7 +184,7 @@ public class Repository {
    * Unstage the file if it is currently staged for addition. If the file is tracked in the current
    * commit, stage it for removal and remove the file from the working directory if the user has not
    * already done so (do not remove it unless it is tracked in the current commit).
-   *
+   * <p>
    * If the file is neither staged nor tracked by the head commit, print the error message "No
    * reason to remove the file."
    *
@@ -219,13 +219,13 @@ public class Repository {
    * --first-parent"). This set of commit nodes is called the commit’s history. For every node in
    * this history, the information it should display is the commit id, the time the commit was made,
    * and the commit message.
-   *
+   * <p>
    * Here is an example of the exact format it should follow:
    * ===
    * commit a0da1ea5a15ab613bf9961fd86f010cf74c7ee48
    * Date: Thu Nov 9 20:00:05 2017 -0800
    * A commit message.
-   *
+   * <p>
    * ===
    * commit 3e8bf1d794ca2e9ef8a4007275acf3751c7170ff
    * Merge: 4975af1 2c1ead1
@@ -238,15 +238,15 @@ public class Repository {
     while (curr != null) {
       Commit currCommit = Utils.readObject(Utils.join(COMMIT_DIR, curr + ".txt"), Commit.class);
       if (currCommit.getParents() == null || currCommit.getParents().size() == 1) {
-        System.out.println(String.format("===\ncommit %s\nDate: %s\n%s\n"
-                , curr, currCommit.getTimestamp(), currCommit.getMessage()));
+        System.out.printf("===\ncommit %s\nDate: %s\n%s\n%n"
+                , curr, currCommit.getTimestamp(), currCommit.getMessage());
       } else {
         String parents = "";
         for (String parent : currCommit.getParents()) {
           parents += parent.substring(0, 7);
         }
-        System.out.println(String.format("===\ncommit %s\nMerge: %s\nDate: %s\n%s\n"
-                , curr, parents, currCommit.getTimestamp(), currCommit.getMessage()));
+        System.out.printf("===\ncommit %s\nMerge: %s\nDate: %s\n%s\n%n"
+                , curr, parents, currCommit.getTimestamp(), currCommit.getMessage());
       }
       if (currCommit.getParents() == null) {
         break;
@@ -262,20 +262,54 @@ public class Repository {
    */
   public static void globalLogCommand() {
     List<String> commits = Utils.plainFilenamesIn(COMMIT_DIR);
-    for (String commitFile: commits) {
+    if (commits == null) {
+      return;
+    }
+
+    for (String commitFile : commits) {
       Commit commit = Utils.readObject(Utils.join(COMMIT_DIR, commitFile), Commit.class);
       String commitId = commitFile.split(".txt")[0];
       if (commit.getParents() == null || commit.getParents().size() == 1) {
-        System.out.println(String.format("===\ncommit %s\nDate: %s\n%s\n"
-                , commitId, commit.getTimestamp(), commit.getMessage()));
+        System.out.printf("===\ncommit %s\nDate: %s\n%s\n%n"
+                , commitId, commit.getTimestamp(), commit.getMessage());
       } else {
         String parents = "";
         for (String parent : commit.getParents()) {
           parents += parent.substring(0, 7);
         }
-        System.out.println(String.format("===\ncommit %s\nMerge: %s\nDate: %s\n%s\n"
-                , commitId, parents, commit.getTimestamp(), commit.getMessage()));
+        System.out.printf("===\ncommit %s\nMerge: %s\nDate: %s\n%s\n%n"
+                , commitId, parents, commit.getTimestamp(), commit.getMessage());
       }
+    }
+  }
+
+  /**
+   * Prints out the ids of all commits that have the given commit message, one per line. If there
+   * are multiple such commits, it prints the ids out on separate lines. The commit message is a
+   * single operand; to indicate a multiword message, put the operand in quotation marks, as for the
+   * commit command below. If no such commit exists, prints the error message "Found no commit with
+   * that message."
+   *
+   * @param message given commit message
+   */
+  public static void findCommand(String message) {
+    List<String> commits = Utils.plainFilenamesIn(COMMIT_DIR);
+    if (commits == null) {
+      return;
+    }
+
+    boolean isFound = false;
+    for (String commitFile : commits) {
+      Commit commit = Utils.readObject(Utils.join(COMMIT_DIR, commitFile), Commit.class);
+      String commitId = commitFile.split(".txt")[0];
+      if (commit.getMessage().contains(message)) {
+        System.out.println(commitId);
+        isFound = true;
+      }
+    }
+
+    if (!isFound) {
+      System.out.println("Found no commit with that message.");
     }
   }
 }
