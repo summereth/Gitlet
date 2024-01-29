@@ -34,6 +34,22 @@ public class Stage implements Serializable {
 
     // add/overwrite the file in addedFiles
     addedFiles.put(filename, contentHashed);
+
+    this.save();
+  }
+
+  public void setRemovedFiles(String filename, Commit currentCommit) {
+    // delete the file from addedFiles if it exists in addedFiles
+    addedFiles.remove(filename);
+
+    // If the file is tracked in the current commit, stage it for removal and remove the file from
+    // the working directory if the user has not already done so
+    if (currentCommit.getFiles().containsKey(filename)) {
+      removedFiles.add(filename);
+      Utils.restrictedDelete(filename);
+    }
+
+    this.save();
   }
 
   public void save() {

@@ -108,6 +108,9 @@ public class Repository {
    * @param args args input by users in command line
    */
   public static void addCommand(String[] args) {
+    Commit head = getCurrentHead();
+    Stage stagingArea = getCurrentStage();
+
     for (String filename : args) {
       if (filename.equals("add")) {
         continue;
@@ -120,10 +123,7 @@ public class Repository {
       }
 
       String contentHashed = Utils.sha1(Utils.readContentsAsString(f));
-      Commit head = getCurrentHead();
-      Stage stagingArea = getCurrentStage();
       stagingArea.setAddedFiles(filename, contentHashed, head);
-      stagingArea.save();
       stagingArea.printStaging(); // for test
     }
   }
@@ -175,5 +175,40 @@ public class Repository {
 
     // make new staging area / clear the staging area
     Utils.writeObject(STAGE_DIR, new Stage());
+
+    // for test
+    thisCommit.printFiles();
+  }
+
+  /**
+   * Unstage the file if it is currently staged for addition. If the file is tracked in the current
+   * commit, stage it for removal and remove the file from the working directory if the user has not
+   * already done so (do not remove it unless it is tracked in the current commit).
+   *
+   * If the file is neither staged nor tracked by the head commit, print the error message "No
+   * reason to remove the file."
+   *
+   * @param args args input by users in command line
+   */
+  public static void rmCommand(String args[]) {
+    Stage stagingArea = getCurrentStage();
+    Commit head = getCurrentHead();
+
+    for (String filename : args) {
+      if (filename.equals("rm")) {
+        continue;
+      }
+
+      File f = new File(filename);
+      if (!f.exists()
+              && !stagingArea.getAddedFiles().containsKey(filename)
+              && !head.getFiles().containsKey(filename)) {
+        System.out.println("No reason to remove the file.");
+        System.exit(0);
+      }
+
+      stagingArea.setRemovedFiles(filename, head);
+      stagingArea.printStaging(); // for test
+    }
   }
 }

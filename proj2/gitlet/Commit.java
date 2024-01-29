@@ -71,4 +71,14 @@ public class Commit implements Serializable {
       files.remove(filename);
     }
   }
+
+  // test function
+
+  public void printFiles() {
+    System.out.println("Tracked files:");
+    for (String filename : files.keySet()) {
+      System.out.println(filename + ": " + files.get(filename));
+    }
+    System.out.println("=============");
+  }
 }
