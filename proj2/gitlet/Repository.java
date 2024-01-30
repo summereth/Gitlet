@@ -124,8 +124,8 @@ public class Repository {
 
       String contentHashed = Utils.sha1(Utils.readContentsAsString(f));
       stagingArea.setAddedFiles(filename, contentHashed, head);
-      stagingArea.printStaging(); // for test
     }
+    stagingArea.printStaging(); // for test
   }
 
   /**
@@ -208,8 +208,8 @@ public class Repository {
       }
 
       stagingArea.setRemovedFiles(filename, head);
-      stagingArea.printStaging(); // for test
     }
+    stagingArea.printStaging(); // for test
   }
 
   /**
@@ -312,4 +312,103 @@ public class Repository {
       System.out.println("Found no commit with that message.");
     }
   }
+
+  /**
+   * Displays what branches currently exist, and marks the current branch with a *. Also displays
+   * what files have been staged for addition or removal.
+   */
+  public static void statusCommand() {
+    // display branches in order
+    System.out.println("=== Branches ===");
+    System.out.println("*" + Utils.readContentsAsString(HEAD_FILE).split(".txt")[0]);
+    List<String> branches = Utils.plainFilenamesIn(BRANCH_DIR);
+    if (branches != null) {
+      for (String branchFilename : branches) {
+        String branch = branchFilename.split(".txt")[0];
+        if (!branch.equals(Utils.readContentsAsString(HEAD_FILE).split(".txt")[0]) &&
+                !branch.equals("HEAD")) {
+          System.out.println(branch);
+        }
+      }
+    }
+    System.out.println();
+
+    // display staged files and removed files in order
+    Stage stagingArea = getCurrentStage();
+    System.out.println("=== Staged Files ===");
+    for (String file : stagingArea.getAddedFileNamesInOrder()) {
+      System.out.println(file);
+    }
+    System.out.println();
+
+    System.out.println("=== Removed Files ===");
+    for (String file : stagingArea.getRemovedFileNamesInOrder()) {
+      System.out.println(file);
+    }
+    System.out.println();
+
+    /**
+     * A file in the working directory is “modified but not staged” if it is
+     * Tracked in the current commit, changed in the working directory, but not staged; or
+     * Staged for addition, but with different contents than in the working directory; or
+     * Staged for addition, but deleted in the working directory; or
+     * Not staged for removal, but tracked in the current commit and deleted from the working
+     * directory.
+     * The final category (“Untracked Files”) is for files present in the working directory but
+     * neither staged for addition nor tracked.
+     */
+    Map<String, String> cwdFiles = getCwdFiles();
+    Map<String, String> stageFiles = stagingArea.getAddedFiles();
+    List<String> stageRemovedFiles = stagingArea.getRemovedFiles();
+    Map<String, String> trackedFiles = getCurrentHead().getFiles();
+    PriorityQueue<String> untracked = new PriorityQueue<>();
+    Map<String, String> notStaged = new TreeMap<>();
+
+    for (String filename : cwdFiles.keySet()) {
+      if (!stageFiles.containsKey(filename) && !trackedFiles.containsKey(filename)) { // untracked
+        untracked.offer(filename);
+      } else if ((trackedFiles.containsKey(filename) // current file is tracked
+              && !trackedFiles.get(filename).equals(cwdFiles.get(filename)) // changes were made to current file
+              && !stageFiles.containsKey(filename))  // not staged
+              || (stageFiles.containsKey(filename)
+              && !stageFiles.get(filename).equals(cwdFiles.get(filename)))) { // OR staged with different content
+        notStaged.put(filename, "modified");
+      }
+    }
+
+    for (String filename : stageFiles.keySet()) {
+      if (!cwdFiles.containsKey(filename)) {
+        notStaged.put(filename, "deleted");
+      }
+    }
+    for (String filename : trackedFiles.keySet()) {
+      if (!stageRemovedFiles.contains(filename) && !cwdFiles.containsKey(filename)) {
+        notStaged.put(filename, "deleted");
+      }
+    }
+
+    System.out.println("=== Modifications Not Staged For Commit ===");
+    for (String filename : notStaged.keySet()) {
+      System.out.printf("%s(%s)\n", filename, notStaged.get(filename));
+    }
+    System.out.println();
+    System.out.println("=== Untracked Files ===");
+    for (String filename : untracked) {
+      System.out.println(filename);
+    }
+    System.out.println();
+  }
+
+  private static Map<String, String> getCwdFiles() {
+    Map<String, String> fileMap = new HashMap<>();
+    List<String> files = Utils.plainFilenamesIn(CWD);
+    if (files != null) {
+      for (String file : files) {
+        fileMap.put(file, Utils.sha1(Utils.readContentsAsString(new File(file))));
+      }
+    }
+    return fileMap;
+  }
+
+
 }

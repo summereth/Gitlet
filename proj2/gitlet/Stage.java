@@ -28,6 +28,18 @@ public class Stage implements Serializable {
     return removedFiles;
   }
 
+  public List<String> getAddedFileNamesInOrder() {
+    List<String> addedFileNames = new ArrayList<>(addedFiles.keySet());
+    Collections.sort(addedFileNames);
+    return addedFileNames;
+  }
+
+  public List<String> getRemovedFileNamesInOrder() {
+    List<String> removedFileNames = new ArrayList<>(removedFiles);
+    Collections.sort(removedFileNames);
+    return removedFileNames;
+  }
+
   public void setAddedFiles(String filename, String contentHashed, Commit currentCommit) {
     // delete the file from removedFiles if it exists in removedFiles
     removedFiles.remove(filename);
