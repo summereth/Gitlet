@@ -40,20 +40,20 @@ public class Stage implements Serializable {
     return removedFileNames;
   }
 
-  public void setAddedFiles(String filename, String contentHashed, Commit currentCommit) {
+  public void setAddedFiles(String filename, String blobId, Commit currentCommit) {
     // delete the file from removedFiles if it exists in removedFiles
     removedFiles.remove(filename);
 
     // delete the file from addedFiles if it exists in addedFiles and identical to the version in
     // current commit
     if (currentCommit.getFiles().containsKey(filename)
-            && currentCommit.getFiles().get(filename).equals(contentHashed)) {
+            && currentCommit.getFiles().get(filename).equals(blobId)) {
       addedFiles.remove(filename);
       return;
     }
 
     // add/overwrite the file in addedFiles
-    addedFiles.put(filename, contentHashed);
+    addedFiles.put(filename, blobId);
 
     this.save();
   }

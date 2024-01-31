@@ -122,8 +122,11 @@ public class Repository {
         System.exit(0);
       }
 
-      String contentHashed = Utils.sha1(Utils.readContentsAsString(f));
-      stagingArea.setAddedFiles(filename, contentHashed, head);
+      String blobId = Utils.sha1(Utils.readContentsAsString(f));
+      stagingArea.setAddedFiles(filename, blobId, head);
+      // save blob
+      File blob = Utils.join(BLOB_DIR, blobId + ".txt");
+      Utils.writeContents(blob, Utils.readContents(f));
     }
     stagingArea.printStaging(); // for test
   }
@@ -410,5 +413,37 @@ public class Repository {
     return fileMap;
   }
 
+  /**
+   * Takes the version of the file as it exists in the given commit (if not given, then head commit)
+   * and puts it in the working directory, overwriting the version of the file that’s already there
+   * if there is one. The new version of the file is not staged.
+   *
+   * @param commitid restore file from given commitid
+   * @param filename restore given file by filename
+   */
+  public static void checkoutFileCommand(String commitid, String filename) {
+    // use the head commit if commitid is not provided
+    if (commitid.equals("")) {
+      String head = Utils.readContentsAsString(HEAD_FILE);
+      commitid = Utils.readContentsAsString(Utils.join(BRANCH_DIR, head + ".txt"));
+    }
+    // validate commitid
+    List<String> commits = Utils.plainFilenamesIn(COMMIT_DIR);
+    if (commits != null && !commits.contains(commitid + ".txt")) {
+      System.out.println("No commit with that id exists.");
+      System.exit(0);
+    }
+    // read file from commit
+    Commit commit = Utils.readObject(Utils.join(COMMIT_DIR, commitid + ".txt"), Commit.class);
+    if (!commit.getFiles().containsKey(filename)) {
+      System.out.println("File does not exist in that commit.");
+      System.exit(0);
+    }
+    String blobId = commit.getFiles().get(filename);
+    File f = Utils.join(CWD, filename);
+    Utils.writeContents(f, Utils.readContents(Utils.join(BLOB_DIR, blobId + ".txt")));
+  }
 
+  public static void checkoutBranchCommand(String branch) {
+  }
 }

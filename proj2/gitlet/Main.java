@@ -38,39 +38,49 @@ public class Main {
     switch (firstArg) {
       case "init":
         // TODO: handle the `init` command
-        validateArgsNum(args, 1, false);
+        validateArgsNum(args, 1, 1);
         Repository.initCommand();
         break;
       case "add":
         // TODO: handle the `add [filename]` command
-        validateArgsNum(args, 2, true);
+        validateArgsNum(args, 2, Integer.MAX_VALUE);
         Repository.addCommand(args);
         break;
       // TODO: FILL THE REST IN
       case "commit":
         // TODO: handle the `commit [message]` command
-        validateArgsNum(args, 2, false);
+        validateArgsNum(args, 2, 2);
         Repository.commitCommand(args[1]);
         break;
       case "rm":
-        validateArgsNum(args, 2, true);
+        validateArgsNum(args, 2, Integer.MAX_VALUE);
         Repository.rmCommand(args);
         break;
       case "log":
-        validateArgsNum(args, 1, false);
+        validateArgsNum(args, 1, 1);
         Repository.logCommand();
         break;
       case "global-log":
-        validateArgsNum(args, 1, false);
+        validateArgsNum(args, 1, 1);
         Repository.globalLogCommand();
         break;
       case "find":
-        validateArgsNum(args, 2, false);
+        validateArgsNum(args, 2, 2);
         Repository.findCommand(args[1]);
         break;
       case "status":
-        validateArgsNum(args, 1, false);
+        validateArgsNum(args, 1, 1);
         Repository.statusCommand();
+        break;
+      case "checkout":
+        validateArgsNum(args, 2, 4);
+        if (args.length == 2) {
+          Repository.checkoutBranchCommand(args[1]);
+        } else if (args.length == 3) {
+          Repository.checkoutFileCommand("", args[2]);
+        } else {
+          Repository.checkoutFileCommand(args[1], args[3]);
+        }
         break;
       default:
         System.out.println("No command with that name exists.");
@@ -78,8 +88,8 @@ public class Main {
     }
   }
 
-  public static void validateArgsNum(String[] args, int num, boolean atLeast) {
-    if (args.length < num || (!atLeast && args.length > num)) {
+  public static void validateArgsNum(String[] args, int min, int max) {
+    if (args.length < min || args.length > max) {
       System.out.println("Incorrect operands.");
       System.exit(0);
     }
