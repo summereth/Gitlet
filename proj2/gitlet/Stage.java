@@ -40,6 +40,10 @@ public class Stage implements Serializable {
     return removedFileNames;
   }
 
+  public boolean isClean() {
+    return addedFiles.isEmpty() && removedFiles.isEmpty();
+  }
+
   public void setAddedFiles(String filename, String blobId, Commit currentCommit) {
     // delete the file from removedFiles if it exists in removedFiles
     removedFiles.remove(filename);

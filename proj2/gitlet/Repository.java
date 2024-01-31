@@ -31,11 +31,11 @@ public class Repository {
    * The .gitlet directory.
    * .getlet
    * - branch/
-   * - HEAD.txt
-   * - master.txt
-   * - stage.txt/
-   * - commit/
-   * - blob/
+   * - HEAD.txt -> name: HEAD.txt; content: branch name of current HEAD
+   * - master.txt -> name: {branchname}.txt; content: commidid of the branch head
+   * - stage.txt -> name: stage.txt; conteng: object of current staging area
+   * - commit/ -> contains commit files (name: {commitid}.txt; content: object of the commit)
+   * - blob/ -> contains blob files (name: {blobid}.txt; content: content of some version of a file)
    */
   public static final File GITLET_DIR = join(CWD, ".gitlet");
   static final File BRANCH_DIR = join(GITLET_DIR, "branch");
@@ -85,13 +85,13 @@ public class Repository {
     System.out.println("Gitlet has been successfully initialised.");
   }
 
-  public static Commit getCurrentHead() {
+  private static Commit getCurrentHead() {
     String branch = Utils.readContentsAsString(HEAD_FILE);
     String commitId = Utils.readContentsAsString(Utils.join(BRANCH_DIR, branch + ".txt"));
     return Utils.readObject(Utils.join(COMMIT_DIR, commitId + ".txt"), Commit.class);
   }
 
-  public static Stage getCurrentStage() {
+  private static Stage getCurrentStage() {
     return Utils.readObject(STAGE_FILE, Stage.class);
   }
 
@@ -360,39 +360,12 @@ public class Repository {
      * The final category (“Untracked Files”) is for files present in the working directory but
      * neither staged for addition nor tracked.
      */
-    Map<String, String> cwdFiles = getCwdFiles();
-    Map<String, String> stageFiles = stagingArea.getAddedFiles();
-    List<String> stageRemovedFiles = stagingArea.getRemovedFiles();
-    Map<String, String> trackedFiles = getCurrentHead().getFiles();
-    PriorityQueue<String> untracked = new PriorityQueue<>();
-    Map<String, String> notStaged = new TreeMap<>();
-
-    for (String filename : cwdFiles.keySet()) {
-      if (!stageFiles.containsKey(filename) && !trackedFiles.containsKey(filename)) { // untracked
-        untracked.offer(filename);
-      } else if ((trackedFiles.containsKey(filename) // current file is tracked
-              && !trackedFiles.get(filename).equals(cwdFiles.get(filename)) // changes were made to current file
-              && !stageFiles.containsKey(filename))  // not staged
-              || (stageFiles.containsKey(filename)
-              && !stageFiles.get(filename).equals(cwdFiles.get(filename)))) { // OR staged with different content
-        notStaged.put(filename, "modified");
-      }
-    }
-
-    for (String filename : stageFiles.keySet()) {
-      if (!cwdFiles.containsKey(filename)) {
-        notStaged.put(filename, "deleted");
-      }
-    }
-    for (String filename : trackedFiles.keySet()) {
-      if (!stageRemovedFiles.contains(filename) && !cwdFiles.containsKey(filename)) {
-        notStaged.put(filename, "deleted");
-      }
-    }
+    List<String> untracked = getUntrackedFiles();
+    Map<String, String> unstagedModification = getUnstagedModification();
 
     System.out.println("=== Modifications Not Staged For Commit ===");
-    for (String filename : notStaged.keySet()) {
-      System.out.printf("%s(%s)\n", filename, notStaged.get(filename));
+    for (String filename : unstagedModification.keySet()) {
+      System.out.printf("%s(%s)\n", filename, unstagedModification.get(filename));
     }
     System.out.println();
     System.out.println("=== Untracked Files ===");
@@ -400,6 +373,61 @@ public class Repository {
       System.out.println(filename);
     }
     System.out.println();
+  }
+
+  /**
+   * Returns names of files present in the working directory but neither staged for addition nor
+   * tracked in natural order.
+   * @return names of files present in the working directory but neither staged for addition nor
+   * tracked.
+   */
+  private static List<String> getUntrackedFiles() {
+    Stage stagingArea = getCurrentStage();
+    Map<String, String> cwdFiles = getCwdFiles();
+    Map<String, String> stageFiles = stagingArea.getAddedFiles();
+    Map<String, String> trackedFiles = getCurrentHead().getFiles();
+    List<String> untracked = new ArrayList<>();
+
+    for (String filename : cwdFiles.keySet()) {
+      if (!stageFiles.containsKey(filename) && !trackedFiles.containsKey(filename)) {
+        untracked.add(filename);
+      }
+    }
+
+    Collections.sort(untracked);
+    return untracked;
+  }
+
+  private static Map<String, String> getUnstagedModification() {
+    Stage stagingArea = getCurrentStage();
+    Map<String, String> cwdFiles = getCwdFiles();
+    Map<String, String> stageFiles = stagingArea.getAddedFiles();
+    List<String> stageRemovedFiles = stagingArea.getRemovedFiles();
+    Map<String, String> trackedFiles = getCurrentHead().getFiles();
+    Map<String, String> unstagedModification = new TreeMap<>();
+
+    for (String filename : cwdFiles.keySet()) {
+      if (trackedFiles.containsKey(filename) // current file is tracked
+              && !trackedFiles.get(filename).equals(cwdFiles.get(filename)) // changes were made to current file
+              && !stageFiles.containsKey(filename)  // not staged
+              || stageFiles.containsKey(filename)
+              && !stageFiles.get(filename).equals(cwdFiles.get(filename))) { // OR staged with different content
+        unstagedModification.put(filename, "modified");
+      }
+    }
+
+    for (String filename : stageFiles.keySet()) {
+      if (!cwdFiles.containsKey(filename)) {
+        unstagedModification.put(filename, "deleted");
+      }
+    }
+    for (String filename : trackedFiles.keySet()) {
+      if (!stageRemovedFiles.contains(filename) && !cwdFiles.containsKey(filename)) {
+        unstagedModification.put(filename, "deleted");
+      }
+    }
+
+    return unstagedModification;
   }
 
   private static Map<String, String> getCwdFiles() {
@@ -444,6 +472,54 @@ public class Repository {
     Utils.writeContents(f, Utils.readContents(Utils.join(BLOB_DIR, blobId + ".txt")));
   }
 
+  /**
+   * Takes all files in the commit at the head of the given branch, and puts them in the working
+   * directory, overwriting the versions of the files that are already there if they exist. Also, at
+   * the end of this command, the given branch will now be considered the current branch (HEAD). Any
+   * files that are tracked in the current branch but are not present in the checked-out branch are
+   * deleted. The staging area is cleared, unless the checked-out branch is the current branch.
+   * Not allowed to check out to current branch.
+   * Not allowed to check out to other branches if current staging area is not clean.
+   * @param branch the name of branch to be checked out
+   */
   public static void checkoutBranchCommand(String branch) {
+    // no such branch
+    List<String> branches = Utils.plainFilenamesIn(BRANCH_DIR);
+    if (branches != null && !branches.contains(branch + ".txt")) {
+      System.out.println("No such branch exists.");
+      System.exit(0);
+    }
+    // given branch is current branch
+    if (Utils.readContentsAsString(HEAD_FILE).equals(branch)) {
+      System.out.println("No need to checkout the current branch.");
+      System.exit(0);
+    }
+    // staging area is not clean (there is untracked file)
+    if (!getCurrentStage().isClean() || !getUntrackedFiles().isEmpty() || !getUnstagedModification().isEmpty()) {
+      System.out.println("There is an untracked file in the way; delete it, or add and commit it first.");
+      System.exit(0);
+    }
+
+    // read from commit and overwrite CWD
+    String checkoutCommitId = Utils.readContentsAsString(Utils.join(BRANCH_DIR, branch + ".txt"));
+    Commit checkoutCommit = Utils.readObject(Utils.join(COMMIT_DIR, checkoutCommitId + ".txt"), Commit.class);
+    for (String filename : checkoutCommit.getFiles().keySet()) {
+      String blobId = checkoutCommit.getFiles().get(filename);
+      byte[] content = Utils.readContents(Utils.join(BLOB_DIR, blobId + ".txt"));
+      Utils.writeContents(Utils.join(CWD, filename), content);
+    }
+    // delete files from CWD that don't exist in commit
+    List<String> CWDFiles = Utils.plainFilenamesIn(CWD);
+    if (CWDFiles != null) {
+      for (String filename : CWDFiles) {
+        if (!checkoutCommit.getFiles().containsKey(filename)) {
+          Utils.restrictedDelete(Utils.join(CWD, filename));
+        }
+      }
+    }
+    // change the HEAD to current branch
+    Utils.writeContents(HEAD_FILE, branch + ".txt");
+    // make new staging area / clear the staging area
+    Utils.writeObject(STAGE_FILE, new Stage());
   }
 }
