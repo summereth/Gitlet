@@ -90,6 +90,10 @@ public class Main {
         validateArgsNum(args, 2, 2);
         Repository.rmBranchCommand(args[1]);
         break;
+      case "reset":
+        validateArgsNum(args, 2, 2);
+        Repository.resetCommand(args[1]);
+        break;
       default:
         System.out.println("No command with that name exists.");
         System.exit(0);

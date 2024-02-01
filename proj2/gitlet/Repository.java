@@ -456,21 +456,41 @@ public class Repository {
       String head = Utils.readContentsAsString(HEAD_FILE);
       commitid = Utils.readContentsAsString(Utils.join(BRANCH_DIR, head + ".txt"));
     }
-    // validate commitid
-    List<String> commits = Utils.plainFilenamesIn(COMMIT_DIR);
-    if (commits != null && !commits.contains(commitid + ".txt")) {
+    // read file from commit
+    overwriteFilesFromCommit(commitid, filename);
+  }
+
+  private static void validateCommitId(String commitId) {
+    if (!Utils.join(COMMIT_DIR, commitId + ".txt").exists()) {
       System.out.println("No commit with that id exists.");
       System.exit(0);
     }
-    // read file from commit
-    Commit commit = Utils.readObject(Utils.join(COMMIT_DIR, commitid + ".txt"), Commit.class);
-    if (!commit.getFiles().containsKey(filename)) {
+  }
+
+  /**
+   * Overwrite files in CWD from given commit. If filename is given, only update that file.
+   * Otherwise, update all files from the given commit.
+   *
+   * @param commitId the hash code of the commit that you want to retrieve
+   * @param filename name of the file to be overwritten. Pass an empty string if all files from the
+   *                 commit need to be overwritten
+   */
+  private static void overwriteFilesFromCommit(String commitId, String filename) {
+    validateCommitId(commitId);
+    Commit commit = Utils.readObject(Utils.join(COMMIT_DIR, commitId + ".txt"), Commit.class);
+    if (!filename.equals("") && !commit.getFiles().containsKey(filename)) {
       System.out.println("File does not exist in that commit.");
       System.exit(0);
     }
-    String blobId = commit.getFiles().get(filename);
-    File f = Utils.join(CWD, filename);
-    Utils.writeContents(f, Utils.readContents(Utils.join(BLOB_DIR, blobId + ".txt")));
+    List<String> files = filename.equals("")
+            ? new ArrayList<>(commit.getFiles().keySet())
+            : List.of(filename);
+
+    for (String file : files) {
+      String blobId = commit.getFiles().get(file);
+      File f = Utils.join(CWD, file);
+      Utils.writeContents(f, Utils.readContents(Utils.join(BLOB_DIR, blobId + ".txt")));
+    }
   }
 
   /**
@@ -505,11 +525,7 @@ public class Repository {
     // read from commit and overwrite CWD
     String checkoutCommitId = Utils.readContentsAsString(Utils.join(BRANCH_DIR, branch + ".txt"));
     Commit checkoutCommit = Utils.readObject(Utils.join(COMMIT_DIR, checkoutCommitId + ".txt"), Commit.class);
-    for (String filename : checkoutCommit.getFiles().keySet()) {
-      String blobId = checkoutCommit.getFiles().get(filename);
-      byte[] content = Utils.readContents(Utils.join(BLOB_DIR, blobId + ".txt"));
-      Utils.writeContents(Utils.join(CWD, filename), content);
-    }
+    overwriteFilesFromCommit(checkoutCommitId, "");
     // delete files from CWD that don't exist in commit
     List<String> CWDFiles = Utils.plainFilenamesIn(CWD);
     if (CWDFiles != null) {
@@ -555,5 +571,25 @@ public class Repository {
     if (!Utils.join(BRANCH_DIR, branch + ".txt").delete()) {
       System.out.println("A branch with that name does not exist.");
     }
+  }
+
+  /**
+   * Checks out all the files tracked by the given commit. Removes tracked files that are not
+   * present in that commit. Also moves the current branch’s head to that commit node. See the intro
+   * for an example of what happens to the head pointer after using reset. The [commit id] may be
+   * abbreviated as for checkout. The staging area is cleared. The command is essentially checkout
+   * of an arbitrary commit that also changes the current branch head.
+   * Not allowed to reset if any working file is untracked in the current branch and would be
+   * overwritten by the reset.
+   *
+   * @param commidId the hashcode of the commit that you want to retrieve
+   */
+  public static void resetCommand(String commidId) {
+    if (!getCurrentStage().isClean() || !getUntrackedFiles().isEmpty() || !getUnstagedModification().isEmpty()) {
+      System.out.println("There is an untracked file in the way; delete it, or add and commit it first.");
+      System.exit(0);
+    }
+
+    overwriteFilesFromCommit(commidId, "");
   }
 }
