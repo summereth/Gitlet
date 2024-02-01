@@ -82,6 +82,10 @@ public class Main {
           Repository.checkoutFileCommand(args[1], args[3]);
         }
         break;
+      case "branch":
+        validateArgsNum(args, 2, 2);
+        Repository.branchCommand(args[1]);
+        break;
       default:
         System.out.println("No command with that name exists.");
         System.exit(0);

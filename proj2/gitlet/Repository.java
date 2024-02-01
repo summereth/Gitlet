@@ -378,6 +378,7 @@ public class Repository {
   /**
    * Returns names of files present in the working directory but neither staged for addition nor
    * tracked in natural order.
+   *
    * @return names of files present in the working directory but neither staged for addition nor
    * tracked.
    */
@@ -480,6 +481,7 @@ public class Repository {
    * deleted. The staging area is cleared, unless the checked-out branch is the current branch.
    * Not allowed to check out to current branch.
    * Not allowed to check out to other branches if current staging area is not clean.
+   *
    * @param branch the name of branch to be checked out
    */
   public static void checkoutBranchCommand(String branch) {
@@ -518,8 +520,22 @@ public class Repository {
       }
     }
     // change the HEAD to current branch
-    Utils.writeContents(HEAD_FILE, branch + ".txt");
+    Utils.writeContents(HEAD_FILE, branch);
     // make new staging area / clear the staging area
     Utils.writeObject(STAGE_FILE, new Stage());
+  }
+
+  /**
+   * Creates a new branch with the given name, and points it at the current head commit. A branch is
+   * nothing more than a name for a reference (a SHA-1 identifier) to a commit node. This command
+   * does NOT immediately switch to the newly created branch (just as in real Git).
+   *
+   * @param branch name of the branch to be created
+   */
+  public static void branchCommand(String branch) {
+    String currentBranch = Utils.readContentsAsString(HEAD_FILE);
+    String headCommitId = Utils.readContentsAsString(Utils.join(BRANCH_DIR, currentBranch + ".txt"));
+    File newBranch = Utils.join(BRANCH_DIR, branch + ".txt");
+    Utils.writeContents(newBranch, headCommitId);
   }
 }
