@@ -524,21 +524,32 @@ public class Repository {
 
     // read from commit and overwrite CWD
     String checkoutCommitId = Utils.readContentsAsString(Utils.join(BRANCH_DIR, branch + ".txt"));
-    Commit checkoutCommit = Utils.readObject(Utils.join(COMMIT_DIR, checkoutCommitId + ".txt"), Commit.class);
     overwriteFilesFromCommit(checkoutCommitId, "");
     // delete files from CWD that don't exist in commit
-    List<String> CWDFiles = Utils.plainFilenamesIn(CWD);
-    if (CWDFiles != null) {
-      for (String filename : CWDFiles) {
-        if (!checkoutCommit.getFiles().containsKey(filename)) {
-          Utils.restrictedDelete(Utils.join(CWD, filename));
-        }
-      }
-    }
+    deleteFilesNotExistInCommit(checkoutCommitId);
+
     // change the HEAD to current branch
     Utils.writeContents(HEAD_FILE, branch);
     // make new staging area / clear the staging area
     Utils.writeObject(STAGE_FILE, new Stage());
+  }
+
+  /**
+   * Delete files from CWD that don't exist in the given commit.
+   *
+   * @param commitId hashcode of the commit to retrieve
+   */
+  private static void deleteFilesNotExistInCommit(String commitId) {
+    Commit commit = Utils.readObject(Utils.join(COMMIT_DIR, commitId + ".txt"), Commit.class);
+
+    List<String> CWDFiles = Utils.plainFilenamesIn(CWD);
+    if (CWDFiles != null) {
+      for (String filename : CWDFiles) {
+        if (!commit.getFiles().containsKey(filename)) {
+          Utils.restrictedDelete(Utils.join(CWD, filename));
+        }
+      }
+    }
   }
 
   /**
@@ -591,5 +602,13 @@ public class Repository {
     }
 
     overwriteFilesFromCommit(commidId, "");
+    deleteFilesNotExistInCommit(commidId);
+
+    // moves the current branch’s head to that commit node
+    String currentBranch = Utils.readContentsAsString(HEAD_FILE);
+    Utils.writeContents(Utils.join(BRANCH_DIR, currentBranch + ".txt"), commidId);
+
+    // make new staging area / clear the staging area
+    Utils.writeObject(STAGE_FILE, new Stage());
   }
 }
