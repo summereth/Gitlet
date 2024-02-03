@@ -65,10 +65,10 @@ public class Commit implements Serializable {
 
   public void updateFiles(Stage stagingArea, Map<String, String> files) {
     this.files = files;
-    for (String filename: stagingArea.getAddedFiles().keySet()) {
+    for (String filename : stagingArea.getAddedFiles().keySet()) {
       files.put(filename, stagingArea.getAddedFiles().get(filename));
     }
-    for (String filename: stagingArea.getRemovedFiles()) {
+    for (String filename : stagingArea.getRemovedFiles()) {
       files.remove(filename);
     }
   }
@@ -81,5 +81,17 @@ public class Commit implements Serializable {
       System.out.println(filename + ": " + files.get(filename));
     }
     System.out.println("=============");
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    Commit commit = (Commit) o;
+    return Objects.equals(message, commit.message) && Objects.equals(timestamp, commit.timestamp) && Objects.equals(parents, commit.parents) && Objects.equals(files, commit.files);
+  }
+
+  public String getHash() {
+    return Utils.sha1(Utils.serialize(this));
   }
 }

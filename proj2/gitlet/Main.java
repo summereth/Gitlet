@@ -50,7 +50,7 @@ public class Main {
       case "commit":
         // TODO: handle the `commit [message]` command
         validateArgsNum(args, 2, 2);
-        Repository.commitCommand(args[1]);
+        Repository.commitCommand(args[1], "");
         break;
       case "rm":
         validateArgsNum(args, 2, Integer.MAX_VALUE);

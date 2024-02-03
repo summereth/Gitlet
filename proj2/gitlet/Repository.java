@@ -94,7 +94,7 @@ public class Repository {
     return Utils.readObject(
             Utils.join(
                     COMMIT_DIR,
-                    Utils.readContentsAsString(Utils.join(BRANCH_DIR, branch + ".txt"))
+                    Utils.readContentsAsString(Utils.join(BRANCH_DIR, branch + ".txt")) + ".txt"
             ),
             Commit.class
     );
@@ -137,7 +137,7 @@ public class Repository {
       File blob = Utils.join(BLOB_DIR, blobId + ".txt");
       Utils.writeContents(blob, Utils.readContents(f));
     }
-    stagingArea.printStaging(); // for test
+//    stagingArea.printStaging(); // for test
   }
 
   /**
@@ -157,7 +157,7 @@ public class Repository {
    *
    * @param message Commit message
    */
-  public static void commitCommand(String message) {
+  public static void commitCommand(String message, String mergeCommitId) {
     // read from filesystem the head commit and the staging area
     Stage stagingArea = getCurrentStage();
     if (stagingArea.getAddedFiles().size() == 0 && stagingArea.getRemovedFiles().size() == 0) {
@@ -176,7 +176,10 @@ public class Repository {
       lastCommitFilesClone.put(key, lastCommitFiles.get(key));
     }
     // modify its message, timestamp, parent commit according to user input
-    Commit thisCommit = new Commit(message, List.of(headCommitId));
+    List<String> parents = mergeCommitId.equals("")
+            ? List.of(headCommitId)
+            : List.of(headCommitId, mergeCommitId);
+    Commit thisCommit = new Commit(message, parents);
     // update the tracking files by the use of staging area
     thisCommit.updateFiles(stagingArea, lastCommitFilesClone);
 
@@ -189,7 +192,7 @@ public class Repository {
     Utils.writeObject(STAGE_FILE, new Stage());
 
     // for test
-    thisCommit.printFiles();
+//    thisCommit.printFiles();
   }
 
   /**
@@ -221,7 +224,7 @@ public class Repository {
 
       stagingArea.setRemovedFiles(filename, head);
     }
-    stagingArea.printStaging(); // for test
+//    stagingArea.printStaging(); // for test
   }
 
   /**
@@ -626,6 +629,9 @@ public class Repository {
   }
 
   /**
+   * Merge current branch with the other branch into current branch and make a commit. The merge
+   * commit has two parent commits. Not allowed to operate merge if there is any unstaged /
+   * uncomitted change.
    *
    * @param otherBranch the name of the other branch to merge
    */
@@ -638,7 +644,7 @@ public class Repository {
     // check if attempting to merge a branch with itself
     Commit head = getCurrentHead();
     Commit other = getLastCommitInBranch(otherBranch);
-    if (head == other) {
+    if (head.equals(other)) {
       System.out.println("Cannot merge a branch with itself.");
       System.exit(0);
     }
@@ -653,37 +659,120 @@ public class Repository {
     }
 
     Commit splitPoint = findLCA(head, other);
-    if (splitPoint == other) {
+    if (splitPoint == null) {
+      throw new RuntimeException("Error occurs in finding LCA. No LCA was found.");
+    }
+    // If the split point is the other branch, do nothing. The merge is completed
+    if (other.equals(splitPoint)) {
       System.out.println("Given branch is an ancestor of the current branch.");
       System.exit(0);
     }
-    if (splitPoint == head) {
-      // If the split point is the current branch, then the effect is to check out the given branch
+    // If the split point is the current branch, then the effect is to check out the given branch
+    if (head.equals(splitPoint)) {
       checkoutBranchCommand(otherBranch);
       System.out.println("Current branch fast-forwarded.");
       return;
     }
+
+    /*
+     * Merge files & stage files. Merge rules:
+     * 1) Modified in other but not head -> other & stage for addition
+     * 2) Modified in head but not other -> head
+     * 3) Modified in other and head in the same way -> head
+     * 4) Modified in other and head in the different way -> conflict, not to commit
+     * 5) Not in split point nor other but in head -> head
+     * 6) Not in split point nor head but in other -> other & stage for addition
+     * 7) Unmodified in head but not present in other -> remove & stage for removal
+     * 8) Unmodified in other but not present in head -> remain removed
+     */
+    Stage stagingArea = getCurrentStage();
+    for (String filename : head.getFiles().keySet()) {
+      // case 3: same contents in both branch
+      if (head.getFiles().get(filename).equals(
+              other.getFiles().getOrDefault(filename, ""
+              ))) {
+        continue;
+      }
+      boolean isModifiedInHead = !head.getFiles().get(filename).equals(
+              splitPoint.getFiles().getOrDefault(filename, ""
+              ));
+      boolean isModifiedInOther = !other.getFiles().getOrDefault(filename, "").equals(
+              splitPoint.getFiles().getOrDefault(filename, ""
+              ));
+      // case 2 & 5: isModifiedInHead && !isModifiedInOther -> continue
+      if (!isModifiedInHead && isModifiedInOther) {
+        if (!other.getFiles().containsKey(filename)) {
+          // case 7
+          stagingArea.setRemovedFiles(filename, head);
+        } else {
+          // case 1
+          overwriteFilesFromCommit(other, filename);
+          stagingArea.setAddedFiles(filename, "", null);
+        }
+      } else if (isModifiedInHead && isModifiedInOther) {
+        // case 4: conflict
+        solveMergeConflict(filename,
+                head.getFiles().get(filename),
+                other.getFiles().getOrDefault(filename, "")
+        );
+      }
+    }
+    for (String filename : other.getFiles().keySet()) {
+      if (!splitPoint.getFiles().containsKey(filename) && !head.getFiles().containsKey(filename)) {
+        // case 6
+        overwriteFilesFromCommit(other, filename);
+        stagingArea.setAddedFiles(filename, "", null);
+      } else if (!head.getFiles().containsKey(filename)
+              && !other.getFiles().get(filename).equals(
+              splitPoint.getFiles().getOrDefault(filename, ""
+              ))) {
+        // case 4: conflict. modified in other and not present in head
+        solveMergeConflict(filename, "", other.getFiles().get(filename));
+      }
+      // case 8: Unmodified in other and not present in head -> continue
+    }
+
+    // Make a commit
+    String currentBranch = Utils.readContentsAsString(HEAD_FILE);
+    String mergeCommitId = other.getHash();
+    commitCommand(String.format("Merged %s into %s.", otherBranch, currentBranch), mergeCommitId);
+  }
+
+  private static void solveMergeConflict(String filename, String headBlobId, String otherBlobId) {
+    String headContent = headBlobId.equals("") ? "\n"
+            : Utils.readContentsAsString(Utils.join(BLOB_DIR, headBlobId + ".txt"));
+    String otherContent = otherBlobId.equals("") ? "\n"
+            : Utils.readContentsAsString(Utils.join(BLOB_DIR, otherBlobId + ".txt"));
+    File f = Utils.join(CWD, filename);
+    Utils.writeContents(
+            f,
+            String.format("<<<<<<< HEAD\n%s=======\n%s>>>>>>>", headContent, otherContent)
+    );
   }
 
   private static Commit findLCA(Commit c1, Commit c2) {
-    Set<Commit> c1Parents = new HashSet<>();
+    Set<String> c1Parents = new HashSet<>();
     Queue<Commit> q = new ArrayDeque<>();
     q.offer(c1);
     while (!q.isEmpty()) {
       Commit curr = q.poll();
-      for (String parentId : curr.getParents()) {
-        Commit parent = getCommitById(parentId);
-        c1Parents.add(parent);
-        q.offer(parent);
+      c1Parents.add(curr.getHash());
+      if (curr.getParents() != null) {
+        for (String parentId : curr.getParents()) {
+          q.offer(getCommitById(parentId));
+        }
       }
     }
+
     q.offer(c2);
     while (!q.isEmpty()) {
       Commit curr = q.poll();
-      for (String parentId : curr.getParents()) {
-        Commit parent = getCommitById(parentId);
-        if (c1Parents.contains(parent)) {
-          return parent;
+      if (c1Parents.contains(curr.getHash())) {
+        return curr;
+      }
+      if (curr.getParents() != null) {
+        for (String parentId : curr.getParents()) {
+          q.offer(getCommitById(parentId));
         }
       }
     }
