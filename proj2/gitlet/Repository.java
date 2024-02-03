@@ -87,8 +87,17 @@ public class Repository {
 
   private static Commit getCurrentHead() {
     String branch = Utils.readContentsAsString(HEAD_FILE);
-    String commitId = Utils.readContentsAsString(Utils.join(BRANCH_DIR, branch + ".txt"));
-    return Utils.readObject(Utils.join(COMMIT_DIR, commitId + ".txt"), Commit.class);
+    return getLastCommitInBranch(branch);
+  }
+
+  private static Commit getLastCommitInBranch(String branch) {
+    return Utils.readObject(
+            Utils.join(
+                    COMMIT_DIR,
+                    Utils.readContentsAsString(Utils.join(BRANCH_DIR, branch + ".txt"))
+            ),
+            Commit.class
+    );
   }
 
   private static Stage getCurrentStage() {
@@ -442,6 +451,14 @@ public class Repository {
     return fileMap;
   }
 
+  private static Commit getCommitById(String id) {
+    validateCommitId(id);
+    return Utils.readObject(
+            Utils.join(COMMIT_DIR, id + ".txt"),
+            Commit.class
+    );
+  }
+
   /**
    * Takes the version of the file as it exists in the given commit (if not given, then head commit)
    * and puts it in the working directory, overwriting the version of the file that’s already there
@@ -452,12 +469,10 @@ public class Repository {
    */
   public static void checkoutFileCommand(String commitid, String filename) {
     // use the head commit if commitid is not provided
-    if (commitid.equals("")) {
-      String head = Utils.readContentsAsString(HEAD_FILE);
-      commitid = Utils.readContentsAsString(Utils.join(BRANCH_DIR, head + ".txt"));
-    }
+    Commit commit = commitid.equals("") ? getCurrentHead() : getCommitById(commitid);
+
     // read file from commit
-    overwriteFilesFromCommit(commitid, filename);
+    overwriteFilesFromCommit(commit, filename);
   }
 
   private static void validateCommitId(String commitId) {
@@ -471,13 +486,11 @@ public class Repository {
    * Overwrite files in CWD from given commit. If filename is given, only update that file.
    * Otherwise, update all files from the given commit.
    *
-   * @param commitId the hash code of the commit that you want to retrieve
+   * @param commit   the commit object that you want to retrieve
    * @param filename name of the file to be overwritten. Pass an empty string if all files from the
    *                 commit need to be overwritten
    */
-  private static void overwriteFilesFromCommit(String commitId, String filename) {
-    validateCommitId(commitId);
-    Commit commit = Utils.readObject(Utils.join(COMMIT_DIR, commitId + ".txt"), Commit.class);
+  private static void overwriteFilesFromCommit(Commit commit, String filename) {
     if (!filename.equals("") && !commit.getFiles().containsKey(filename)) {
       System.out.println("File does not exist in that commit.");
       System.exit(0);
@@ -524,9 +537,10 @@ public class Repository {
 
     // read from commit and overwrite CWD
     String checkoutCommitId = Utils.readContentsAsString(Utils.join(BRANCH_DIR, branch + ".txt"));
-    overwriteFilesFromCommit(checkoutCommitId, "");
+    Commit checkoutCommit = getLastCommitInBranch(branch);
+    overwriteFilesFromCommit(checkoutCommit, "");
     // delete files from CWD that don't exist in commit
-    deleteFilesNotExistInCommit(checkoutCommitId);
+    deleteFilesNotExistInCommit(checkoutCommit);
 
     // change the HEAD to current branch
     Utils.writeContents(HEAD_FILE, branch);
@@ -537,11 +551,9 @@ public class Repository {
   /**
    * Delete files from CWD that don't exist in the given commit.
    *
-   * @param commitId hashcode of the commit to retrieve
+   * @param commit the commit object to retrieve
    */
-  private static void deleteFilesNotExistInCommit(String commitId) {
-    Commit commit = Utils.readObject(Utils.join(COMMIT_DIR, commitId + ".txt"), Commit.class);
-
+  private static void deleteFilesNotExistInCommit(Commit commit) {
     List<String> CWDFiles = Utils.plainFilenamesIn(CWD);
     if (CWDFiles != null) {
       for (String filename : CWDFiles) {
@@ -601,8 +613,9 @@ public class Repository {
       System.exit(0);
     }
 
-    overwriteFilesFromCommit(commidId, "");
-    deleteFilesNotExistInCommit(commidId);
+    Commit commit = getCommitById(commidId);
+    overwriteFilesFromCommit(commit, "");
+    deleteFilesNotExistInCommit(commit);
 
     // moves the current branch’s head to that commit node
     String currentBranch = Utils.readContentsAsString(HEAD_FILE);
@@ -610,5 +623,70 @@ public class Repository {
 
     // make new staging area / clear the staging area
     Utils.writeObject(STAGE_FILE, new Stage());
+  }
+
+  /**
+   *
+   * @param otherBranch the name of the other branch to merge
+   */
+  public static void mergeCommand(String otherBranch) {
+    // a branch with the given name does not exist
+    if (!Utils.join(BRANCH_DIR, otherBranch + ".txt").exists()) {
+      System.out.println("A branch with that name does not exist.");
+      System.exit(0);
+    }
+    // check if attempting to merge a branch with itself
+    Commit head = getCurrentHead();
+    Commit other = getLastCommitInBranch(otherBranch);
+    if (head == other) {
+      System.out.println("Cannot merge a branch with itself.");
+      System.exit(0);
+    }
+    // check any unstaged / uncommited change
+    if (!getCurrentStage().isClean()) {
+      System.out.println("You have uncommitted changes.");
+      System.exit(0);
+    }
+    if (!getUntrackedFiles().isEmpty() || !getUnstagedModification().isEmpty()) {
+      System.out.println("There is an untracked file in the way; delete it, or add and commit it first.");
+      System.exit(0);
+    }
+
+    Commit splitPoint = findLCA(head, other);
+    if (splitPoint == other) {
+      System.out.println("Given branch is an ancestor of the current branch.");
+      System.exit(0);
+    }
+    if (splitPoint == head) {
+      // If the split point is the current branch, then the effect is to check out the given branch
+      checkoutBranchCommand(otherBranch);
+      System.out.println("Current branch fast-forwarded.");
+      return;
+    }
+  }
+
+  private static Commit findLCA(Commit c1, Commit c2) {
+    Set<Commit> c1Parents = new HashSet<>();
+    Queue<Commit> q = new ArrayDeque<>();
+    q.offer(c1);
+    while (!q.isEmpty()) {
+      Commit curr = q.poll();
+      for (String parentId : curr.getParents()) {
+        Commit parent = getCommitById(parentId);
+        c1Parents.add(parent);
+        q.offer(parent);
+      }
+    }
+    q.offer(c2);
+    while (!q.isEmpty()) {
+      Commit curr = q.poll();
+      for (String parentId : curr.getParents()) {
+        Commit parent = getCommitById(parentId);
+        if (c1Parents.contains(parent)) {
+          return parent;
+        }
+      }
+    }
+    return null;
   }
 }

@@ -94,6 +94,10 @@ public class Main {
         validateArgsNum(args, 2, 2);
         Repository.resetCommand(args[1]);
         break;
+      case "merge":
+        validateArgsNum(args, 2, 2);
+        Repository.mergeCommand(args[1]);
+        break;
       default:
         System.out.println("No command with that name exists.");
         System.exit(0);
