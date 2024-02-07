@@ -676,14 +676,14 @@ public class Repository {
 
     /*
      * Merge files & stage files. Merge rules:
-     * 1) Modified in other but not head -> other & stage for addition
-     * 2) Modified in head but not other -> head
-     * 3) Modified in other and head in the same way -> head
-     * 4) Modified in other and head in the different way -> conflict, not to commit
-     * 5) Not in split point nor other but in head -> head
-     * 6) Not in split point nor head but in other -> other & stage for addition
-     * 7) Unmodified in head but not present in other -> remove & stage for removal
-     * 8) Unmodified in other but not present in head -> remain removed
+     * 1) Modified in other but not head -> other & stage for addition. Test case A
+     * 2) Modified in head but not other -> head. Test case B
+     * 3) Modified in other and head in the same way -> head. Test case C
+     * 4) Modified in other and head in the different way -> conflict & replace contents and stage
+     * 5) Not in split point nor other but in head -> head. Test case G
+     * 6) Not in split point nor head but in other -> other & stage for addition. Test case F
+     * 7) Unmodified in head but not present in other -> remove & stage for removal. Test case D
+     * 8) Unmodified in other but not present in head -> remain removed. Test case E
      */
     Stage stagingArea = getCurrentStage();
     for (String filename : head.getFiles().keySet()) {
@@ -707,7 +707,7 @@ public class Repository {
         } else {
           // case 1
           overwriteFilesFromCommit(other, filename);
-          stagingArea.setAddedFiles(filename, "", null);
+          stagingArea.setAddedFiles(filename, other.getFiles().get(filename), head);
         }
       } else if (isModifiedInHead && isModifiedInOther) {
         // case 4: conflict
@@ -715,19 +715,29 @@ public class Repository {
                 head.getFiles().get(filename),
                 other.getFiles().getOrDefault(filename, "")
         );
+        stagingArea.setAddedFiles(
+                filename,
+                Utils.sha1(Utils.readContentsAsString(Utils.join(CWD, filename))),
+                head
+        );
       }
     }
     for (String filename : other.getFiles().keySet()) {
       if (!splitPoint.getFiles().containsKey(filename) && !head.getFiles().containsKey(filename)) {
         // case 6
         overwriteFilesFromCommit(other, filename);
-        stagingArea.setAddedFiles(filename, "", null);
+        stagingArea.setAddedFiles(filename, other.getFiles().get(filename), head);
       } else if (!head.getFiles().containsKey(filename)
               && !other.getFiles().get(filename).equals(
               splitPoint.getFiles().getOrDefault(filename, ""
               ))) {
         // case 4: conflict. modified in other and not present in head
         solveMergeConflict(filename, "", other.getFiles().get(filename));
+        stagingArea.setAddedFiles(
+                filename,
+                Utils.sha1(Utils.readContentsAsString(Utils.join(CWD, filename))),
+                head
+        );
       }
       // case 8: Unmodified in other and not present in head -> continue
     }

@@ -50,12 +50,10 @@ public class Stage implements Serializable {
 
     // delete the file from addedFiles if it exists in addedFiles and identical to the version in
     // current commit
-    if (currentCommit != null && !blobId.equals("")) {
-      if (currentCommit.getFiles().containsKey(filename)
-              && currentCommit.getFiles().get(filename).equals(blobId)) {
-        addedFiles.remove(filename);
-        return;
-      }
+    if (currentCommit.getFiles().containsKey(filename)
+            && currentCommit.getFiles().get(filename).equals(blobId)) {
+      addedFiles.remove(filename);
+      return;
     }
 
     // add/overwrite the file in addedFiles
